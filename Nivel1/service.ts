@@ -13,7 +13,7 @@ export class AuthService {
   ) {}
 
   async login(data: loginInputDto): Promise<string> {
-    const user = await this.authRepository.finduser(data.email);
+    const user = await this.authRepository.findUser(data.email);
 
     if (!user) {
       throw new NotFoundException("User not found");
@@ -36,9 +36,5 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException();
     }
-  }
-
-  async logout(user: AuthenticatedRequest["user"]) {
-    await this.redisService.del(`refresh_${user.id}`);
   }
 }

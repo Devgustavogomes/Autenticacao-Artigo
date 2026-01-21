@@ -21,13 +21,4 @@ export class AuthController {
   async login(@Body() data: loginInputDto) {
     return await this.authService.login(data);
   }
-
-  @Get("logout")
-  @UseGuards(AuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async logout(@Req() req: AuthenticatedRequest) {
-    await this.authService.logout(req.user);
-
-    return { message: "Logout realizado com sucesso" };
-  }
 }
