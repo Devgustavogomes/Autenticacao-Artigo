@@ -11,6 +11,7 @@ export class AuthService {
   constructor(
     private readonly authRepository: AuthContract,
     private readonly jwtService: JwtService,
+    private readonly redisService: RedisService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -20,7 +21,7 @@ export class AuthService {
     const user = await this.authRepository.finduser(data.email);
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException("Invalid credentials");
     }
 
     const isMatch = await compare(data.password, user.password_hash);
@@ -41,6 +42,12 @@ export class AuthService {
         expiresIn: "7d",
       });
 
+      await this.redisService.set(
+        `refresh_${user.id_user}`,
+        refreshToken,
+        604800,
+      );
+
       const accessToken = await this.jwtService.signAsync(payload);
 
       return {
@@ -50,6 +57,10 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException();
     }
+  }
+
+  async logout(user: AuthenticatedRequest["user"]) {
+    await this.redisService.del(`refresh_${user.id}`);
   }
 
   async refresh(
@@ -68,6 +79,14 @@ export class AuthService {
       },
     );
 
+    const isInRedis = await this.redisService.get(
+      `refresh_${refreshTokenPayload.id}`,
+    );
+
+    if (!isInRedis || isInRedis !== refreshToken) {
+      throw new UnauthorizedException();
+    }
+
     const { iat, exp, ...payload } = { ...refreshTokenPayload };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -76,6 +95,12 @@ export class AuthService {
       secret: process.env.REFRESH_SECRET,
       expiresIn: "7d",
     });
+
+    await this.redisService.set(
+      `refresh_${refreshTokenPayload.id}`,
+      newRefreshToken,
+      604800,
+    );
 
     return {
       accessToken,
